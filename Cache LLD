@@ -112,22 +112,3 @@ class CacheBuilder {
         strategy.delete(key);
     }
 }
-
-public class Main {
-    public static void main(String[] args) {
-
-        CacheBuilder myCache = new CacheBuilder(2, "LRU");
-
-        myCache.put("k1", "v1");
-        myCache.put("k2", "v2");
-        
-        // Moves k1 to the tail (MRU)
-        System.out.println("Value for k1: " + myCache.get("k1")); 
-
-        // Cache full: evicts k2 because k1 was recently accessed
-        myCache.put("k3", "v3"); 
-
-        System.out.println("Value for k2 (evicted): " + myCache.get("k2")); // null
-        System.out.println("Value for k3: " + myCache.get("k3")); // v3
-    }
-}

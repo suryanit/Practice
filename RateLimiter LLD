@@ -1,0 +1,85 @@
+import java.util.*;
+
+interface RateLimitingStrategy{
+    boolean isAllowed(int timeStamp);
+}
+
+class FixedWindowStrategy implements RateLimitingStrategy{
+
+    private int maxRequests;
+    private int timePeriod;
+    private int currentRequestsInTimePeriod = 0;
+    private int currentWindow = -1;
+
+    public FixedWindowStrategy(int maxRequests, int timePeriod){
+        this.maxRequests = maxRequests;
+        this.timePeriod = timePeriod;
+    }
+
+    @Override
+    public boolean isAllowed(int timeStamp){
+        int window = timeStamp/timePeriod;
+        if(window != currentWindow){
+            currentWindow = window;
+            currentRequestsInTimePeriod = 1;
+            return true;
+        }
+        return ++currentRequestsInTimePeriod <= maxRequests;
+    }
+}
+
+class SlidingWindowStrategy implements RateLimitingStrategy{
+    private int maxRequests;
+    private int timePeriod;
+    private Deque<Integer> timeStamps;
+
+    public SlidingWindowStrategy(int maxRequests, int timePeriod){
+        this.maxRequests = maxRequests;
+        this.timePeriod = timePeriod;
+        this.timeStamps = new LinkedList<>();
+    }
+
+    @Override
+    public boolean isAllowed(int timeStamp){
+        int windowStartTime = timeStamp - timePeriod + 1;
+
+        while(!timeStamps.isEmpty() && timeStamps.peekFirst() < windowStartTime){
+            timeStamps.pollFirst();
+        }
+        if(timeStamps.size() < maxRequests){
+            timeStamps.offerLast(timeStamp);
+            return true;
+        }
+        return false;
+    }
+}
+
+
+
+public class RateLimiter{
+  private Map<String, RateLimitingStrategy> resourceMap;
+
+  public RateLimiter(){
+    this.resourceMap = new HashMap<>();
+  }
+
+  public void addResource(String resourceId, String strategy, int maxRequests, int timePeriod){
+    RateLimitingStrategy strategyObj;
+    if(strategy.equals("fixed-window-counter")){
+        strategyObj = new FixedWindowStrategy(maxRequests, timePeriod);
+    }else if(strategy.equals("sliding-window-counter")){
+        strategyObj = new SlidingWindowStrategy(maxRequests, timePeriod);
+    }else{
+        return;
+    }
+    resourceMap.put(resourceId, strategyObj);
+  }
+
+  public boolean isAllowed(String resourceId, int timeStamp){
+    RateLimitingStrategy strategyObj = resourceMap.get(resourceId);
+    if(strategyObj == null){
+        return false;
+    }
+    return strategyObj.isAllowed(timeStamp);
+  }
+}

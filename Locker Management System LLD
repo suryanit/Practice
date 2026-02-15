@@ -1,0 +1,90 @@
+import java.util.*;
+
+class Locker {
+    private String id;
+    private String size;
+    private boolean isOccupied;
+
+    public Locker(String id, String size) {
+        this.id = id;
+        this.size = size;
+        this.isOccupied = false;
+    }
+
+    public String getId() { return this.id; }
+    public String getSize() { return this.size; }
+    public boolean isOccupied() { return this.isOccupied; }
+    public void setOccupied(boolean occupied) { this.isOccupied = occupied; }
+}
+
+public class LockerManager {
+
+    private Map<String, Locker> allLockers;
+    private Map<String, TreeSet<String>> availableLockers;
+    private Set<String> validSizes;
+    private Map<String, Integer> sizeCounters;
+    
+    private Map<String, String> lockerToOtp;
+
+    public LockerManager() {
+        allLockers = new HashMap<>();
+        availableLockers = new HashMap<>();
+        validSizes = new HashSet<>(Arrays.asList("S", "M", "L", "XL", "XXL"));
+        sizeCounters = new HashMap<>();
+        lockerToOtp = new HashMap<>();
+
+        for (String size : validSizes) {
+            availableLockers.put(size, new TreeSet<>());
+            sizeCounters.put(size, 0);
+        }
+    }
+
+    public void addSlot(String size) {
+        if (!validSizes.contains(size)) return;
+        int slotIdToAdd = sizeCounters.get(size) + 1;
+        sizeCounters.put(size, slotIdToAdd);
+        String lockerId = size + slotIdToAdd;
+        Locker locker = new Locker(lockerId, size);
+        allLockers.put(lockerId, locker);
+        availableLockers.get(size).add(lockerId);
+    }
+
+    public String findSlot(String size) {
+        if (!validSizes.contains(size)) return "";
+        TreeSet<String> slots = availableLockers.get(size);
+        return slots.isEmpty() ? "" : slots.first();
+    }
+
+    public String occupySlotAndSendCode(String lockerId) {
+        Locker locker = allLockers.get(lockerId);
+        if (locker == null || locker.isOccupied()) {
+            return null;
+        }
+
+        locker.setOccupied(true);
+        availableLockers.get(locker.getSize()).remove(lockerId);
+
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        lockerToOtp.put(lockerId, otp);
+        
+        System.out.println("Notification sent to customer: Your pickup code for locker " + lockerId + " is " + otp);
+        return otp;
+    }
+
+    public boolean pickupPackage(String lockerId, String customerOtp) {
+        Locker locker = allLockers.get(lockerId);
+        
+        if (locker == null || !locker.isOccupied()) {
+            return false;
+        }
+
+        String storedOtp = lockerToOtp.get(lockerId);
+        if (storedOtp != null && storedOtp.equals(customerOtp)) {
+            locker.setOccupied(false);
+            availableLockers.get(locker.getSize()).add(lockerId);
+            lockerToOtp.remove(lockerId);
+            return true;
+        }
+        return false;
+    }
+}

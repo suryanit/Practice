@@ -1,0 +1,99 @@
+import java.util.*;
+
+public class TextEditor {
+    private List<StringBuilder> document;
+    private Stack<Command> undoStack;
+    private Stack<Command> redoStack;
+
+    public TextEditor() {
+        this.document = new ArrayList<>();
+        this.undoStack = new Stack<>();
+        this.redoStack = new Stack<>();
+    }
+
+    private interface Command {
+        void execute();
+        void undo();
+    }
+
+    private class AddCommand implements Command {
+        private int row, col;
+        private String text;
+        private boolean addedNewRow;
+
+        AddCommand(int row, int col, String text, boolean addedNewRow) {
+            this.row = row;
+            this.col = col;
+            this.text = text;
+            this.addedNewRow = addedNewRow;
+        }
+
+        @Override
+        public void execute() {
+            if (addedNewRow) {
+                document.add(new StringBuilder());
+            }
+            document.get(row).insert(col, text);
+        }
+
+        @Override
+        public void undo() {
+            document.get(row).delete(col, col + text.length());
+            if (addedNewRow) {
+                document.remove(row);
+            }
+        }
+    }
+
+    private class DeleteCommand implements Command {
+        private int row, col;
+        private String deletedText;
+
+        DeleteCommand(int row, int col, int length) {
+            this.row = row;
+            this.col = col;
+            this.deletedText = document.get(row).substring(col, col + length);
+        }
+
+        @Override
+        public void execute() {
+            document.get(row).delete(col, col + deletedText.length());
+        }
+
+        @Override
+        public void undo() {
+            document.get(row).insert(col, deletedText);
+        }
+    }
+
+    public void addText(int row, int col, String text) {
+        boolean addedRow = (row == document.size());
+        Command cmd = new AddCommand(row, col, text, addedRow);
+        cmd.execute();
+        undoStack.push(cmd);
+        redoStack.clear();
+    }
+
+    public void deleteText(int row, int col, int length) {
+        Command cmd = new DeleteCommand(row, col, length);
+        cmd.execute();
+        undoStack.push(cmd);
+        redoStack.clear();
+    }
+
+    public void undo() {
+        if (!undoStack.isEmpty()) {
+            Command cmd = undoStack.pop();
+            cmd.undo();
+            redoStack.push(cmd);
+        }
+    }
+
+    public void redo() {
+        if (!redoStack.isEmpty()) {
+            Command cmd = redoStack.pop();
+            cmd.execute();
+            undoStack.push(cmd);
+        }
+    }
+}

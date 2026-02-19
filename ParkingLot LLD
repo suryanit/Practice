@@ -1,0 +1,190 @@
+import java.util.*;
+import java.time.LocalDateTime;
+import java.time.Duration;
+
+abstract class Vehicle {
+    protected String licensePlateNumber;
+    protected String vehicleSize;
+
+    public Vehicle(String licensePlateNumber, String vehicleSize) {
+        this.licensePlateNumber = licensePlateNumber;
+        this.vehicleSize = vehicleSize;
+    }
+
+    public String getLicensePlate() { return licensePlateNumber; }
+    public String getVehicleSize() { return vehicleSize; }
+}
+
+class Bike extends Vehicle {
+    public Bike(String licensePlateNumber) { super(licensePlateNumber, "SMALL"); }
+}
+
+class Car extends Vehicle {
+    public Car(String licensePlateNumber) { super(licensePlateNumber, "MEDIUM"); }
+}
+
+class Truck extends Vehicle {
+    public Truck(String licensePlateNumber) { super(licensePlateNumber, "LARGE"); }
+}
+
+class ParkingSpot {
+    private String slotSize;
+    private Vehicle parkedVehicle;
+
+    public ParkingSpot(String slotSize) {
+        this.slotSize = slotSize;
+    }
+
+    public boolean isOccupied() { return parkedVehicle != null; }
+    public void park(Vehicle vehicle) { this.parkedVehicle = vehicle; }
+    public void vacate() { this.parkedVehicle = null; }
+    public String getSlotSize() { return slotSize; }
+    public Vehicle getParkedVehicle() { return parkedVehicle; }
+}
+
+class ParkingTicket {
+    private LocalDateTime entryTime;
+    private String licensePlate;
+    private String vehicleSize;
+
+    public ParkingTicket(Vehicle vehicle) {
+        this.entryTime = LocalDateTime.now();
+        this.licensePlate = vehicle.getLicensePlate();
+        this.vehicleSize = vehicle.getVehicleSize();
+    }
+
+    public LocalDateTime getEntryTime() { return entryTime; }
+    public String getVehicleSize() { return vehicleSize; }
+}
+
+interface PaymentStrategy {
+    void processPayment(double amount);
+}
+
+class CashPayment implements PaymentStrategy {
+    @Override public void processPayment(double amount) {
+      System.out.println("Processing Cash payment of $" + amount);
+    }
+}
+
+class CreditCardPayment implements PaymentStrategy {
+    @Override public void processPayment(double amount) {
+      System.out.println("Processing Card payment of $" + amount);
+    }
+}
+
+class UPIPayment implements PaymentStrategy {
+    @Override public void processPayment(double amount) {
+      System.out.println("Processing UPI payment of $" + amount);
+    }
+}
+
+interface ParkingFeeStrategy {
+    double calculateFee(String vehicleSize, int durationHours);
+}
+
+class BasicHourlyRateStrategy implements ParkingFeeStrategy {
+    @Override
+    public double calculateFee(String vehicleSize, int durationHours) {
+        double rate = vehicleSize.equals("LARGE") ? 10.0 : (vehicleSize.equals("MEDIUM") ? 5.0 : 2.0);
+        return Math.max(1, durationHours) * rate; 
+    }
+}
+
+public class ParkingManager {
+    private List<ParkingSpot> slots;
+    private Map<String, ParkingTicket> activeTickets;
+    private ParkingFeeStrategy feeStrategy;
+
+    public ParkingManager(ParkingFeeStrategy feeStrategy) {
+        this.slots = new ArrayList<>();
+        this.activeTickets = new HashMap<>();
+        this.feeStrategy = feeStrategy;
+    }
+
+    public void addSlot(String size) {
+        slots.add(new ParkingSpot(size.toUpperCase()));
+    }
+
+    public ParkingTicket entry(Vehicle vehicle) {
+        if (activeTickets.containsKey(vehicle.getLicensePlate())) {
+            System.out.println("ALERT: Vehicle " + vehicle.getLicensePlate() + " is already parked.");
+            return null;
+        }
+
+        for (ParkingSpot slot : slots) {
+            if (!slot.isOccupied() && slot.getSlotSize().equals(vehicle.getVehicleSize())) {
+                slot.park(vehicle);
+                ParkingTicket ticket = new ParkingTicket(vehicle);
+                activeTickets.put(vehicle.getLicensePlate(), ticket);
+                System.out.println("SUCCESS: " + vehicle.getVehicleSize() + " [" + vehicle.getLicensePlate() + "] parked.");
+                return ticket;
+            }
+        }
+        System.out.println("REJECTED: No " + vehicle.getVehicleSize() + " slots available.");
+        return null;
+    }
+
+    public void exit(String licensePlate, PaymentStrategy paymentMethod) {
+        if (!activeTickets.containsKey(licensePlate)) {
+            System.out.println("ERROR: No record found for License Plate: " + licensePlate);
+            return;
+        }
+
+        ParkingTicket ticket = activeTickets.get(licensePlate);
+        
+        long hours = Duration.between(ticket.getEntryTime(), LocalDateTime.now()).toHours();
+        if (hours == 0) hours = 1;
+
+        double amount = feeStrategy.calculateFee(ticket.getVehicleSize(), (int) hours);
+        
+        System.out.println("EXIT REQUEST: License Plate " + licensePlate + ". Total Fee: $" + amount);
+        paymentMethod.processPayment(amount);
+
+        for (ParkingSpot slot : slots) {
+            Vehicle v = slot.getParkedVehicle();
+            if (v != null && v.getLicensePlate().equals(licensePlate)) {
+                slot.vacate();
+                break;
+            }
+        }
+
+        activeTickets.remove(licensePlate);
+        System.out.println("SUCCESS: Payment confirmed. Vehicle " + licensePlate + " has exited.");
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+= 
+        ParkingManager manager = new ParkingManager(new BasicHourlyRateStrategy());
+
+        manager.addSlot("SMALL");  // For Bikes
+        manager.addSlot("MEDIUM"); // For Cars
+        manager.addSlot("LARGE");  // For Trucks
+
+        System.out.println("--- Starting Parking Simulation ---\n");
+
+        Vehicle myBike = new Bike("BK-123");
+        Vehicle myCar = new Car("CAR-999");
+        Vehicle myTruck = new Truck("TRK-777");
+
+        System.out.println("Action: Bike BK-123 entering...");
+        manager.entry(myBike);
+
+        System.out.println("\nAction: Car CAR-999 entering...");
+        manager.entry(myCar);
+
+        System.out.println("\n--- Proceeding to Exit and Payment ---");
+
+        // 7. Test Case: Successful Exit with UPI
+        System.out.println("\nAction: Bike BK-123 exiting via UPI...");
+        manager.exit(myBike.getLicensePlate(), new UPIPayment());
+
+        // 8. Test Case: Successful Exit with Credit Card
+        System.out.println("\nAction: Car CAR-999 exiting via Credit Card...");
+        manager.exit(myCar.getLicensePlate(), new CreditCardPayment());
+        
+        System.out.println("\n--- Simulation Complete ---");
+    }
+}

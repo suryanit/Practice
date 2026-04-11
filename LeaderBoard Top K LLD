@@ -1,0 +1,85 @@
+import java.util.*;
+class User{
+  private int totalScore = 0;
+  private String userId;
+
+  public User(String userId){
+    this.userId = userId;
+  }
+
+  public String getUserId(){
+    return this.userId;
+  }
+
+  public void updateScore(int diff){
+    this.totalScore += diff;
+  }
+
+  public int getTotalScore(){
+    return this.totalScore;
+  }
+}
+
+class Player{
+  private String playerId;
+  private int score = 0;
+  private List<User> users = new ArrayList<>();
+
+  public Player(String playerId){
+    this.playerId = playerId;
+  }
+
+  public void addUser(User user){
+    user.updateScore(score);
+    this.users.add(user);
+  }
+
+  public void addScore(int diff){
+    this.score += diff;
+    for(User user: users){
+      user.updateScore(diff);
+    }
+  }
+}
+
+public class FantasyLeaderboard {
+  private Map<String, User> users;
+  private Map<String, Player> players;
+  private TreeSet<User> ranking = new TreeSet<>((a, b) -> {
+      if(a.getTotalScore() != b.getTotalScore()){
+          return Integer.compare(b.getTotalScore(), a.getTotalScore());
+      }
+      return a.getUserId().compareTo(b.getUserId());
+  });
+
+  public FantasyLeaderboard(){
+    users = new HashMap<>();
+    players = new HashMap<>();
+  }
+
+  public void addPlayerScore(String playerId, int score){
+    players.putIfAbsent(playerId, new Player(playerId));
+    ranking.clear();
+    players.get(playerId).addScore(score);
+    ranking.addAll(users.values());
+  }
+
+  public void addUser(String userId, List<String> playerIds){
+      User newUser = new User(userId);
+      users.put(userId, newUser);
+      for(String playerId: playerIds){
+         players.putIfAbsent(playerId, new Player(playerId));
+         players.get(playerId).addUser(newUser);
+      }
+      ranking.add(newUser);
+  }
+
+  public List<String> getTopK(int k){
+    List<String> topK = new ArrayList<>();
+    Iterator<User> it = ranking.iterator();
+    while(it.hasNext() && topK.size() < k){
+            topK.add(it.next().getUserId());
+    }
+    return topK;
+  }
+}

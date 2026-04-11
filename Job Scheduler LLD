@@ -1,0 +1,96 @@
+import java.util.*;
+
+class Machine{
+  String id;
+  Set<String> capabilities;
+  int unFinishedJobs = 0;
+  int finishedJobs = 0;
+
+  public Machine(String id, String[] capabilities){
+    this.id = id;
+    this.capabilities = new HashSet<>();
+    for(String capability: capabilities){
+      this.capabilities.add(capability.toLowerCase().trim());
+    }
+  }
+
+  public boolean hasCapabilities(String[] requirements){
+    for(String requirement: requirements){
+      if(!this.capabilities.contains(requirement.toLowerCase().trim())){
+          return false;
+      }
+    }
+    return true;
+  }
+}
+
+interface AssignmentStrategy{
+    int compare(Machine a, Machine b);
+}
+
+class LeastNumberOfUnFinishedJobsStrategy implements AssignmentStrategy{
+    @Override
+    public int compare(Machine a, Machine b){
+      if(a.unFinishedJobs != b.unFinishedJobs){
+        return a.unFinishedJobs - b.unFinishedJobs;
+      }
+      return a.id.compareTo(b.id);
+    }
+}
+
+class MostNumberOfFinishedJobsStrategy implements AssignmentStrategy{
+    @Override
+    public int compare(Machine a, Machine b){
+      if(a.finishedJobs != b.finishedJobs){
+        return b.finishedJobs - a.finishedJobs;
+      }
+      return a.id.compareTo(b.id);
+    }
+}
+
+public class JobScheduler{
+
+  private Map<Integer, AssignmentStrategy> jobAssignmentStrategies;
+  private Map<String, Machine> machineIdToMachineMap;
+  private Map<String, Machine> jobIdToMachineMap;
+
+  public JobScheduler(){
+    machineIdToMachineMap = new HashMap<>();
+    jobIdToMachineMap = new HashMap<>();
+
+    jobAssignmentStrategies = new HashMap<>();
+    jobAssignmentStrategies.put(0, new LeastNumberOfUnFinishedJobsStrategy());
+    jobAssignmentStrategies.put(1, new MostNumberOfFinishedJobsStrategy());
+  }
+
+  public void addMachine(String machineId, String[] capabilities){
+    machineIdToMachineMap.put(machineId, new Machine(machineId, capabilities));
+  }
+
+  public String assignMachineToJob(String jobId, String[] capabilitiesRequired, int criteria){
+    AssignmentStrategy strategy = jobAssignmentStrategies.get(criteria);
+
+    Machine bestMachine = null;
+    for(Machine machine: machineIdToMachineMap.values()){
+      if(machine.hasCapabilities(capabilitiesRequired)){
+        if(bestMachine == null || strategy.compare(machine, bestMachine) < 0){
+          bestMachine = machine;
+        }
+      }
+    }
+
+    if(bestMachine != null){
+      bestMachine.unFinishedJobs++;
+      jobIdToMachineMap.put(jobId, bestMachine);
+      return bestMachine.id;
+    }
+    return "";
+  }
+
+  public void jobCompleted(String jobId){
+    Machine machine = jobIdToMachineMap.get(jobId);
+    machine.finishedJobs++;
+    machine.unFinishedJobs--;
+    jobIdToMachineMap.remove(jobId);
+  }
+}
